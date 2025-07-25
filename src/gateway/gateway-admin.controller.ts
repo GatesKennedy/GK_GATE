@@ -19,6 +19,8 @@ import { RouteConfigService } from './routing/route-config.service';
 import { LoadBalancerService } from './load-balancer/load-balancer.service';
 import { HealthCheckService } from './routing/health-check.service';
 import { AdvancedRateLimitService } from './rate-limit/advanced-rate-limit.service';
+import { CircuitBreakerService } from './circuit-breaker/circuit-breaker.service';
+import { CacheService } from './cache/cache.service';
 import { HttpMethod } from './types/route.types';
 
 @Controller('admin/gateway')
@@ -29,6 +31,8 @@ export class GatewayAdminController {
     private readonly loadBalancerService: LoadBalancerService,
     private readonly healthCheckService: HealthCheckService,
     private readonly rateLimitService: AdvancedRateLimitService,
+    private readonly circuitBreakerService: CircuitBreakerService,
+    private readonly cacheService: CacheService,
   ) {}
 
   // Route Management
@@ -192,6 +196,66 @@ export class GatewayAdminController {
     };
   }
 
+  // Circuit Breaker Management
+  @Get('circuit-breaker/stats')
+  @RequirePermissions(Permission.VIEW_METRICS)
+  async getCircuitBreakerStats() {
+    const stats = this.circuitBreakerService.getAllStats();
+    return {
+      message: 'Circuit breaker statistics retrieved successfully',
+      data: stats,
+    };
+  }
+
+  @Post('circuit-breaker/reset')
+  @RequirePermissions(Permission.MANAGE_RATE_LIMITS)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetAllCircuitBreakers() {
+    const resetCount = this.circuitBreakerService.resetAll();
+    return {
+      message: `Reset ${resetCount} circuit breakers successfully`,
+    };
+  }
+
+  // Cache Management
+  @Get('cache/stats')
+  @RequirePermissions(Permission.VIEW_METRICS)
+  async getCacheStats() {
+    const stats = this.cacheService.getStats();
+    return {
+      message: 'Cache statistics retrieved successfully',
+      data: stats,
+    };
+  }
+
+  @Post('cache/clear')
+  @RequirePermissions(Permission.MANAGE_RATE_LIMITS)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async clearCache() {
+    this.cacheService.clear();
+    return {
+      message: 'Cache cleared successfully',
+    };
+  }
+
+  @Delete('cache/:key')
+  @RequirePermissions(Permission.MANAGE_RATE_LIMITS)
+  async deleteCacheEntry(@Param('key') key: string) {
+    const deleted = this.cacheService.delete(key);
+    
+    if (!deleted) {
+      return {
+        message: 'Cache key not found',
+        statusCode: 404,
+      };
+    }
+
+    return {
+      message: 'Cache entry deleted successfully',
+      key,
+    };
+  }
+
   // Gateway Overview
   @Get('overview')
   @RequirePermissions(Permission.VIEW_METRICS)
@@ -200,6 +264,8 @@ export class GatewayAdminController {
     const healthStatus = this.healthCheckService.getHealthStatus();
     const loadBalancerStats = this.loadBalancerService.getStats();
     const rateLimitStats = this.rateLimitService.getStats();
+    const circuitBreakerStats = this.circuitBreakerService.getAllStats();
+    const cacheStats = this.cacheService.getStats();
 
     const overview = {
       routes: {
@@ -219,6 +285,16 @@ export class GatewayAdminController {
       rateLimit: {
         activeWindows: rateLimitStats.activeWindows,
         totalWindows: rateLimitStats.totalWindows,
+      },
+      circuitBreaker: {
+        totalCircuitBreakers: Object.keys(circuitBreakerStats).length,
+        openCircuitBreakers: Object.values(circuitBreakerStats).filter(s => s.state === 'OPEN').length,
+        halfOpenCircuitBreakers: Object.values(circuitBreakerStats).filter(s => s.state === 'HALF_OPEN').length,
+      },
+      cache: {
+        totalEntries: cacheStats.totalEntries,
+        hitRate: cacheStats.hitRate,
+        totalSize: cacheStats.totalSize,
       },
       timestamp: new Date().toISOString(),
     };

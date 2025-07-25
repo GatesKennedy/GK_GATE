@@ -10,9 +10,12 @@ import { ProxyService } from './routing/proxy.service';
 import { HealthCheckService } from './routing/health-check.service';
 import { LoadBalancerService } from './load-balancer/load-balancer.service';
 import { AdvancedRateLimitService } from './rate-limit/advanced-rate-limit.service';
+import { CircuitBreakerService } from './circuit-breaker/circuit-breaker.service';
+import { CacheService } from './cache/cache.service';
 
 // Interceptors
 import { RateLimitInterceptor } from './rate-limit/rate-limit.interceptor';
+import { CacheInterceptor } from './cache/cache.interceptor';
 
 @Module({
   controllers: [GatewayController],
@@ -23,8 +26,14 @@ import { RateLimitInterceptor } from './rate-limit/rate-limit.interceptor';
     HealthCheckService,
     LoadBalancerService,
     AdvancedRateLimitService,
+    CircuitBreakerService,
+    CacheService,
     
     // Global interceptors
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CacheInterceptor,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: RateLimitInterceptor,
@@ -36,6 +45,8 @@ import { RateLimitInterceptor } from './rate-limit/rate-limit.interceptor';
     HealthCheckService,
     LoadBalancerService,
     AdvancedRateLimitService,
+    CircuitBreakerService,
+    CacheService,
   ],
 })
 export class GatewayModule {}

@@ -93,12 +93,14 @@ export class GatewayController {
           timestamp: new Date(),
         };
 
-        // Forward request to selected target
+        // Forward request to selected target with circuit breaker
         const proxyResponse = await this.proxyService.forwardRequest(
           proxyRequest,
           selectedTarget,
           route.timeout,
-          route.retries
+          route.retries,
+          route.circuitBreaker,
+          route.id
         );
 
         // Update target response time

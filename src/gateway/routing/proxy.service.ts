@@ -1,9 +1,14 @@
-import { Injectable, Logger, BadGatewayException, RequestTimeoutException } from '@nestjs/common';
-import { RouteTarget, ProxyRequest, ProxyResponse } from '../types/route.types';
+import { Injectable, Logger, BadGatewayException, RequestTimeoutException, ServiceUnavailableException } from '@nestjs/common';
+import { RouteTarget, ProxyRequest, ProxyResponse, CircuitBreakerConfig } from '../types/route.types';
+import { CircuitBreakerService } from '../circuit-breaker/circuit-breaker.service';
 
 @Injectable()
 export class ProxyService {
   private readonly logger = new Logger(ProxyService.name);
+
+  constructor(
+    private readonly circuitBreakerService: CircuitBreakerService,
+  ) {}
 
   /**
    * Forward request to target service
@@ -12,43 +17,71 @@ export class ProxyService {
     request: ProxyRequest,
     target: RouteTarget,
     timeout: number = 30000,
-    retries: number = 3
+    retries: number = 3,
+    circuitBreakerConfig?: CircuitBreakerConfig,
+    routeId?: string
   ): Promise<ProxyResponse> {
+    // Check circuit breaker before attempting request
+    if (circuitBreakerConfig && routeId) {
+      const canExecute = this.circuitBreakerService.canExecute(routeId, target.url, circuitBreakerConfig);
+      
+      if (!canExecute) {
+        this.logger.warn(`Circuit breaker OPEN for ${target.url}, returning fallback response`);
+        
+        const fallbackResponse = this.circuitBreakerService.getFallbackResponse(circuitBreakerConfig);
+        throw new ServiceUnavailableException(fallbackResponse);
+      }
+    }
+
     let lastError: Error | null = null;
+    let isCircuitBreakerError = false;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const response = await this.makeRequest(request, target, timeout);
         
+        // Record success in circuit breaker
+        if (circuitBreakerConfig && routeId) {
+          this.circuitBreakerService.recordSuccess(routeId, target.url, circuitBreakerConfig);
+        }
+        
         // Log successful request
         this.logger.debug(
-          `Request forwarded successfully: ${request.method} ${request.path} -> ${target.url} (${response.responseTime}ms)`
+          `Request forwarded successfully: ${request.method} ${request.path} -> ${target.url} (${response.responseTime}ms) [attempt ${attempt}]`
         );
 
         return response;
       } catch (error) {
         lastError = error as Error;
+        isCircuitBreakerError = this.isCircuitBreakerEligibleError(error as Error);
+        
+        // Record failure in circuit breaker for server errors
+        if (circuitBreakerConfig && routeId && isCircuitBreakerError) {
+          this.circuitBreakerService.recordFailure(routeId, target.url, circuitBreakerConfig);
+        }
         
         this.logger.warn(
           `Request attempt ${attempt}/${retries} failed: ${request.method} ${request.path} -> ${target.url}`,
-          error
+          { error: (error as Error).message, attempt, maxRetries: retries }
         );
 
-        // Don't retry on client errors (4xx)
-        if (error instanceof BadGatewayException && attempt < retries) {
-          const delay = this.calculateRetryDelay(attempt);
-          await this.sleep(delay);
-          continue;
-        }
-
-        // Throw immediately for non-retryable errors
-        if (attempt === retries) {
+        // Don't retry on client errors (4xx) or final attempt
+        if (!this.shouldRetry(error as Error, attempt, retries)) {
           throw error;
         }
+
+        // Calculate and apply retry delay with exponential backoff
+        const delay = this.calculateRetryDelay(attempt);
+        this.logger.debug(`Retrying after ${delay}ms delay (attempt ${attempt + 1}/${retries})`);
+        await this.sleep(delay);
       }
     }
 
-    // This shouldn't be reached, but TypeScript needs it
+    // Record final failure in circuit breaker
+    if (circuitBreakerConfig && routeId && isCircuitBreakerError) {
+      this.circuitBreakerService.recordFailure(routeId, target.url, circuitBreakerConfig);
+    }
+
     throw lastError || new BadGatewayException('All retry attempts failed');
   }
 
@@ -200,16 +233,46 @@ export class ProxyService {
   }
 
   /**
-   * Calculate exponential backoff delay
+   * Check if error should trigger circuit breaker
+   */
+  private isCircuitBreakerEligibleError(error: Error): boolean {
+    // Circuit breaker should trigger on server errors and timeouts, not client errors
+    return error instanceof BadGatewayException || 
+           error instanceof RequestTimeoutException ||
+           (error instanceof TypeError && error.message.includes('fetch'));
+  }
+
+  /**
+   * Determine if request should be retried
+   */
+  private shouldRetry(error: Error, attempt: number, maxRetries: number): boolean {
+    // Don't retry if this is the last attempt
+    if (attempt >= maxRetries) {
+      return false;
+    }
+
+    // Don't retry client errors (4xx)
+    if (error.message.includes('4')) {
+      return false;
+    }
+
+    // Retry on server errors, timeouts, and network errors
+    return this.isCircuitBreakerEligibleError(error);
+  }
+
+  /**
+   * Calculate exponential backoff delay with jitter
    */
   private calculateRetryDelay(attempt: number): number {
     const baseDelay = 1000; // 1 second
     const maxDelay = 10000; // 10 seconds
-    const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
+    const exponentialDelay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
     
-    // Add jitter to avoid thundering herd
-    const jitter = Math.random() * 0.1 * delay;
-    return delay + jitter;
+    // Add jitter (±25% of delay) to avoid thundering herd
+    const jitterRange = exponentialDelay * 0.25;
+    const jitter = (Math.random() - 0.5) * 2 * jitterRange;
+    
+    return Math.max(100, exponentialDelay + jitter); // Minimum 100ms delay
   }
 
   /**
