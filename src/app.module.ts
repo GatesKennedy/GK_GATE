@@ -5,6 +5,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { HealthModule } from './monitoring/health.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthController } from './auth/auth.controller';
+import { GatewayModule } from './gateway/gateway.module';
+import { GatewayAdminController } from './gateway/gateway-admin.controller';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { appConfig, securityConfig, gatewayConfig } from './config';
@@ -46,8 +48,9 @@ import { appConfig, securityConfig, gatewayConfig } from './config';
     // Feature modules
     HealthModule,
     AuthModule,
+    GatewayModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, GatewayAdminController],
   providers: [
     // Global guards
     {
