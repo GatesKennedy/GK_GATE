@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(make:*)",
+      "Bash(timeout 10s make dev)",
+      "Bash(true)"
+    ],
+    "deny": []
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/../src/$1",
+    "^@auth/(.*)$": "<rootDir>/../src/auth/$1",
+    "^@gateway/(.*)$": "<rootDir>/../src/gateway/$1",
+    "^@validation/(.*)$": "<rootDir>/../src/validation/$1",
+    "^@config/(.*)$": "<rootDir>/../src/config/$1",
+    "^@middleware/(.*)$": "<rootDir>/../src/middleware/$1",
+    "^@filters/(.*)$": "<rootDir>/../src/filters/$1",
+    "^@interceptors/(.*)$": "<rootDir>/../src/interceptors/$1",
+    "^@monitoring/(.*)$": "<rootDir>/../src/monitoring/$1"
+  }
+}

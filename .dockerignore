@@ -1,0 +1,42 @@
+# Ignore development files
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore build outputs
+dist
+coverage
+
+# Ignore development configs
+.env*
+!.env.example
+
+# Ignore version control
+.git
+.gitignore
+
+# Ignore documentation
+*.md
+!README.md
+docs
+
+# Ignore test files
+test
+**/*.spec.ts
+**/*.test.ts
+
+# Ignore IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore CI/CD files
+.github
+.travis.yml
+.circleci

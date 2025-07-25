@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  LOG_LEVEL: "info"
+  CORS_ORIGIN: "*"
+  RATE_LIMIT_TTL: "60"
+  RATE_LIMIT_MAX: "1000"
+  CIRCUIT_BREAKER_THRESHOLD: "5"
+  CIRCUIT_BREAKER_TIMEOUT: "30000"
+  HEALTH_CHECK_TIMEOUT: "5000"
