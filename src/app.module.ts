@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { HealthModule } from './monitoring/health.module';
+import { AuthModule } from './auth/auth.module';
+import { AuthController } from './auth/auth.controller';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { appConfig, securityConfig, gatewayConfig } from './config';
 
 @Module({
@@ -40,8 +45,19 @@ import { appConfig, securityConfig, gatewayConfig } from './config';
 
     // Feature modules
     HealthModule,
+    AuthModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [AuthController],
+  providers: [
+    // Global guards
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
+  ],
 })
 export class AppModule {}

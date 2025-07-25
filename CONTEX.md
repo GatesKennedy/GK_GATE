@@ -395,13 +395,6 @@ spec:
                       periodSeconds: 5
 ```
 
-## Final Optimized Dependency Structure
-
-The streamlined package.json achieves the **73% dependency reduction** mentioned in the optimization guide:
-
-**Before Optimization**: 30+ typical NestJS dependencies
-**After Optimization**: 19 total dependencies (11 production + 8 development)
-
 ### Production Dependencies (11 packages)
 
 ```json
@@ -434,25 +427,6 @@ The streamlined package.json achieves the **73% dependency reduction** mentioned
 	"@types/supertest": "^6.0.0"
 }
 ```
-
-### Packages Explicitly Removed (11 packages)
-
--   axios, @nestjs/axios
--   @nestjs/passport, passport, passport-jwt
--   bcrypt
--   class-validator, class-transformer
--   http-proxy-middleware
--   ts-node
--   @types/passport-jwt
-
-### Net Result
-
--   **11 packages removed**, **3 packages added**
--   **73% reduction** in security/validation dependencies
--   **Minimal attack surface** with essential-only dependencies
--   **Maximum performance** through optimized stack
-
-## Performance Benchmarks & Targets
 
 ### Expected Improvements
 
